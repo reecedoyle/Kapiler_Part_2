@@ -26,12 +26,66 @@ public class ByteCodeOptimizer
 			e.printStackTrace();
 		}
 	}
+
+	private void optimizeGoTo(ClassGen cgen, ConstantPoolGen cpgen, Method m)
+	{
+		Code code = m.getCode();
+
+		InstructionList instructions = new InstructionList(code.getCode());
+
+		MethodGen methodGen = new MethodGen(m.getAccessFlags(), m.getReturnType(), m.getAargumentTypes(), null, cgen.getClassName(), instructions, cpgen);
+
+		for(InstructionHandle handle: instructions.getInstructionHandles())
+		{
+			Instruction instruction = handle.getInstruction();
+			if(instruction instanceof GOTO){
+				int gotos = checkTrace(instruction.getTarget(), instruction);
+			}
+
+		}
+
+		instructions.setPositions(true);
+
+		methodGen.setMaxStack();
+		methodGen.setMaxLocals();
+
+		Method newMethod = methodGen.getMethod();
+
+		cgen.replaceMethod(m, newMethod);
+
+
+
+	}
 	
+
+	private int checkTrace(Instruction instruction, Instruction originalInstruction)
+	{
+		if(instruction.target instanceof GOTO)
+		{
+			return 1 + checktrace(instruction.getTarget(), originalInstruction);
+		}
+		else{
+			originalInstruction.set(new InstructionHandle(instruction));
+			return 0;
+		}
+	}
+
+
 	private void optimize()
 	{
 		ClassGen gen = new ClassGen(original);
-		
+		ConstantPoolGen cpgen = new cpgen.getConstantPool();
+
 		// Do your optimization here
+		Method[] methods = gen.getMethods();
+		
+		for (Method method: methods)
+		{
+			optimizeGoTo(gen, cpgen, method);
+		}	
+
+
+
 		this.optimized = gen.getJavaClass();
 	}
 	
