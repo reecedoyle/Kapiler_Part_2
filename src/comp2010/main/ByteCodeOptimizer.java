@@ -5,8 +5,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import org.apache.bcel.classfile.ClassParser;
+import org.apache.bcel.classfile.Code;
 import org.apache.bcel.classfile.JavaClass;
+import org.apache.bcel.classfile.Method;
 import org.apache.bcel.generic.ClassGen;
+import org.apache.bcel.generic.ConstantPoolGen;
+import org.apache.bcel.generic.GOTO;
+import org.apache.bcel.generic.Instruction;
+import org.apache.bcel.generic.InstructionHandle;
+import org.apache.bcel.generic.InstructionList;
+import org.apache.bcel.generic.MethodGen;
 
 public class ByteCodeOptimizer
 {
@@ -26,20 +34,23 @@ public class ByteCodeOptimizer
 			e.printStackTrace();
 		}
 	}
-
+	
 	private void optimizeGoTo(ClassGen cgen, ConstantPoolGen cpgen, Method m)
 	{
 		Code code = m.getCode();
 
 		InstructionList instructions = new InstructionList(code.getCode());
 
-		MethodGen methodGen = new MethodGen(m.getAccessFlags(), m.getReturnType(), m.getAargumentTypes(), null, cgen.getClassName(), instructions, cpgen);
+		MethodGen methodGen = new MethodGen(m.getAccessFlags(), m.getReturnType(), m.getArgumentTypes(), null, m.getName(), cgen.getClassName(), instructions, cpgen);
 
 		for(InstructionHandle handle: instructions.getInstructionHandles())
 		{
 			Instruction instruction = handle.getInstruction();
-			if(instruction instanceof GOTO){
-				int gotos = checkTrace(instruction.getTarget(), instruction);
+			if(instruction instanceof GOTO)
+			{
+				int go2s = checkGoTo(handle, handle);
+				System.out.println("number of go2s = " +go2s);  // debugging purposes and for line removal
+				
 			}
 
 		}
@@ -57,10 +68,31 @@ public class ByteCodeOptimizer
 
 	}
 	
-
-	private int checkTrace(Instruction instruction, Instruction originalInstruction)
+	
+	private int checkGoTo(InstructionHandle currentInstructionHandle, InstructionHandle originalHandle)
 	{
-		if(instruction.target instanceof GOTO)
+		
+			Instruction currentInstruction = currentInstructionHandle.getInstruction();
+			if(currentInstruction instanceof GOTO)
+			{
+				
+				return 1 + checkGoTo(((GOTO) currentInstruction).getTarget(), originalHandle);
+			}
+			else
+			{
+				Instruction newTarget = new GOTO(currentInstructionHandle);
+				originalHandle.setInstruction(newTarget);
+				return 0;
+			}
+		
+		
+		
+	}
+	
+	/*
+	private int checkTrace(InstructionHandle instruction, Instruction originalInstruction)
+	{
+		if(instruction instanceof GOTO)
 		{
 			return 1 + checktrace(instruction.getTarget(), originalInstruction);
 		}
@@ -69,12 +101,12 @@ public class ByteCodeOptimizer
 			return 0;
 		}
 	}
-
+	*/
 
 	private void optimize()
 	{
 		ClassGen gen = new ClassGen(original);
-		ConstantPoolGen cpgen = new cpgen.getConstantPool();
+		ConstantPoolGen cpgen = gen.getConstantPool();
 
 		// Do your optimization here
 		Method[] methods = gen.getMethods();
