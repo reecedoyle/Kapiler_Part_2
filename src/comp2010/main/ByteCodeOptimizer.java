@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.apache.bcel.classfile.ClassParser;
 import org.apache.bcel.classfile.Code;
@@ -14,18 +15,20 @@ import org.apache.bcel.generic.GOTO;
 import org.apache.bcel.generic.Instruction;
 import org.apache.bcel.generic.InstructionHandle;
 import org.apache.bcel.generic.InstructionList;
+import org.apache.bcel.generic.InstructionTargeter;
 import org.apache.bcel.generic.MethodGen;
+import org.apache.bcel.generic.TargetLostException;
 
-public class ByteCodeOptimizer{
-	
+public class ByteCodeOptimizer
+{
 	ClassParser parser = null;
 	ClassGen gen = null;
 
 	JavaClass original = null;
 	JavaClass optimized = null;
 
-	public ByteCodeOptimizer(String classFilePath){
-
+	public ByteCodeOptimizer(String classFilePath)
+	{
 		try{
 			this.parser = new ClassParser(classFilePath);
 			this.original = this.parser.parse();
@@ -35,93 +38,93 @@ public class ByteCodeOptimizer{
 		}
 	}
 	
-	private void optimizeGoTo(ClassGen cgen, ConstantPoolGen cpgen, Method m)
+	private void resolveGoTo(InstructionHandle currentInstructionHandle, InstructionHandle originalInstructionHandle, ArrayList<InstructionHandle> flagged)
 	{
-		Code code = m.getCode();
-
-		InstructionList instructions = new InstructionList(code.getCode());
-
-		MethodGen methodGen = new MethodGen(m.getAccessFlags(), m.getReturnType(), m.getArgumentTypes(), null, m.getName(), cgen.getClassName(), instructions, cpgen);
-
-		for(InstructionHandle handle: instructions.getInstructionHandles()){
-
-			Instruction instruction = handle.getInstruction();
-
-			if(instruction instanceof GOTO)
-			{
-				int go2s = checkGoTo(handle, handle);
-				System.out.println("number of go2s = " +go2s);  // debugging purposes and for line removal
-				
-			}
-
+		Instruction currentInstruction = currentInstructionHandle.getInstruction();
+		if(currentInstruction instanceof GOTO)
+		{
+			if(!flagged.contains(currentInstructionHandle))
+				flagged.add(currentInstructionHandle);
+			resolveGoTo(((GOTO) currentInstruction).getTarget(), originalInstructionHandle, flagged);
 		}
+		else
+		{
+			Instruction newTarget = new GOTO(currentInstructionHandle);
+			originalInstructionHandle.setInstruction(newTarget);
+			return ;
+		}
+	}
+	
+	private void optimizeMethod(ClassGen gen, ConstantPoolGen cpgen, Method method)
+	{
+		Code methodCode = method.getCode();
+		InstructionList instList = new InstructionList(methodCode.getCode());
+		
+		MethodGen methodGen = new MethodGen(method.getAccessFlags(), method.getReturnType(), method.getArgumentTypes(), null, method.getName(), gen.getClassName(), instList, cpgen);
+		/*
+		ArrayList<InstructionHandle> flagged = new ArrayList<InstructionHandle>();
+		
+		for(InstructionHandle handle: instList.getInstructionHandles())
+		{
+			Instruction ins = handle.getInstruction();
+			if(ins instanceof GOTO)
+			
+				resolveGoTo(((GOTO) ins).getTarget(), handle, flagged);
+		}
+		
+		
 
-		instructions.setPositions(true);
+		for(int k=0; k<flagged.size();++k)
+		{
+			try {
+				instList.delete(flagged.get(k));
+			} catch (TargetLostException e) {
+				InstructionHandle[] targets = e.getTargets();
+			    for(int i=0; i < targets.length; i++) {
+			        InstructionTargeter[] targeters = targets[i].getTargeters();
+			        for(int j=0; j < targeters.length; j++)
+			           targeters[j].updateTarget(targets[i], flagged.get(k).getNext());
+			           
+			        
+		 }
+		}
+		
+		*/
+		
+		instList.setPositions(true);
 
+		
 		methodGen.setMaxStack();
 		methodGen.setMaxLocals();
 
+		
 		Method newMethod = methodGen.getMethod();
-
-		cgen.replaceMethod(m, newMethod);
-
-
-
-	}
+		gen.replaceMethod(method, newMethod);
 	
-	private int checkGoTo(InstructionHandle currentInstructionHandle, InstructionHandle originalHandle)
-	{
-		
-			Instruction currentInstruction = currentInstructionHandle.getInstruction();
-			if(currentInstruction instanceof GOTO)
-			{
-				
-				return 1 + checkGoTo(((GOTO) currentInstruction).getTarget(), originalHandle);
-			}
-			else
-			{
-				Instruction newTarget = new GOTO(currentInstructionHandle);
-				originalHandle.setInstruction(newTarget);
-				return 0;
-			}
-		
 		
 		
 	}
 	
-	/*
-	private int checkTrace(InstructionHandle instruction, Instruction originalInstruction)
+	private void optimize()
 	{
-		if(instruction instanceof GOTO)
-		{
-			return 1 + checktrace(instruction.getTarget(), originalInstruction);
-
-		}
-		else{
-			originalInstruction.set(new InstructionHandle(instruction));
-			return 0;
-		}
-	}
-	*/
-
-	private void optimize(){
-
 		ClassGen gen = new ClassGen(original);
 		ConstantPoolGen cpgen = gen.getConstantPool();
-
-		// Do your optimization here
 		Method[] methods = gen.getMethods();
 		
-		for (Method method: methods)
+		for (Method m: methods)
 		{
-			optimiseMethod(gen, cpgen, method);
-		}	
-
+			//optimizeMethod(gen, cpgen, m);
+		}
+		
+		
+		
+		
+		// Do your optimization here
 		this.optimized = gen.getJavaClass();
 	}
 	
-	public void write(String optimisedFilePath){
-
+	public void write(String optimisedFilePath)
+	{
 		this.optimize();
 
 		try {
@@ -136,8 +139,10 @@ public class ByteCodeOptimizer{
 		}
 	}
 	
-	public static void main(String args[]){
-
+	public static void main(String args[])
+	{
+		//String input = "/home/kapil/Documents/Java/workspace/Kapiler_Part_2/jars/Example.class";
+		//String output = "/home/kapil/Documents/Java/workspace/Kapiler_Part_2/jars/output/Example.class";
 		ByteCodeOptimizer optimizer = new ByteCodeOptimizer(args[0]);
 		optimizer.write(args[1]);
 
