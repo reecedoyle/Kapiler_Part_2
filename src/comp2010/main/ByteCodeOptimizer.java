@@ -8,16 +8,16 @@ import org.apache.bcel.classfile.ClassParser;
 import org.apache.bcel.classfile.JavaClass;
 import org.apache.bcel.generic.ClassGen;
 
-public class ByteCodeOptimizer
-{
+public class ByteCodeOptimizer{
+	
 	ClassParser parser = null;
 	ClassGen gen = null;
 
 	JavaClass original = null;
 	JavaClass optimized = null;
 
-	public ByteCodeOptimizer(String classFilePath)
-	{
+	public ByteCodeOptimizer(String classFilePath){
+
 		try{
 			this.parser = new ClassParser(classFilePath);
 			this.original = this.parser.parse();
@@ -27,19 +27,19 @@ public class ByteCodeOptimizer
 		}
 	}
 
-	private void optimizeGoTo(ClassGen cgen, ConstantPoolGen cpgen, Method m)
-	{
+	private void optimiseMethod(ClassGen cgen, ConstantPoolGen cpgen, Method m){
+
 		Code code = m.getCode();
 
 		InstructionList instructions = new InstructionList(code.getCode());
 
 		MethodGen methodGen = new MethodGen(m.getAccessFlags(), m.getReturnType(), m.getAargumentTypes(), null, cgen.getClassName(), instructions, cpgen);
 
-		for(InstructionHandle handle: instructions.getInstructionHandles())
-		{
+		for(InstructionHandle handle: instructions.getInstructionHandles()){
+
 			Instruction instruction = handle.getInstruction();
 			if(instruction instanceof GOTO){
-				int gotos = checkTrace(instruction.getTarget(), instruction);
+				int gotos = checkGotos(instruction.getTarget(), instruction);
 			}
 
 		}
@@ -58,11 +58,10 @@ public class ByteCodeOptimizer
 	}
 	
 
-	private int checkTrace(Instruction instruction, Instruction originalInstruction)
-	{
-		if(instruction.target instanceof GOTO)
-		{
-			return 1 + checktrace(instruction.getTarget(), originalInstruction);
+	private int checkGotos(Instruction instruction, Instruction originalInstruction){
+
+		if(instruction.target instanceof GOTO){
+			return 1 + checkGotos(instruction.getTarget(), originalInstruction);
 		}
 		else{
 			originalInstruction.set(new InstructionHandle(instruction));
@@ -71,8 +70,8 @@ public class ByteCodeOptimizer
 	}
 
 
-	private void optimize()
-	{
+	private void optimize(){
+
 		ClassGen gen = new ClassGen(original);
 		ConstantPoolGen cpgen = new cpgen.getConstantPool();
 
@@ -81,16 +80,14 @@ public class ByteCodeOptimizer
 		
 		for (Method method: methods)
 		{
-			optimizeGoTo(gen, cpgen, method);
+			optimiseMethod(gen, cpgen, method);
 		}	
-
-
 
 		this.optimized = gen.getJavaClass();
 	}
 	
-	public void write(String optimisedFilePath)
-	{
+	public void write(String optimisedFilePath){
+
 		this.optimize();
 
 		try {
@@ -105,8 +102,8 @@ public class ByteCodeOptimizer
 		}
 	}
 	
-	public static void main(String args[])
-	{
+	public static void main(String args[]){
+
 		ByteCodeOptimizer optimizer = new ByteCodeOptimizer(args[0]);
 		optimizer.write(args[1]);
 
